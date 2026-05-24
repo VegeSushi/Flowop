@@ -42,6 +42,10 @@ syscall_handler:
     je .sys_serial_read
     cmp ah, 15
     je .sys_mouse_get_pos
+    cmp ah, 16
+    je .sys_file_read
+    cmp ah, 17
+    je .sys_file_write
     iret
 
 .sys_print:
@@ -323,6 +327,178 @@ syscall_handler:
     mov cx, [cs:mouse_x]
     mov dx, [cs:mouse_y]
     mov bx, [cs:mouse_btn]
+    iret
+
+.sys_file_read:
+    sti
+    pusha
+    push ds
+    push es
+    
+    mov ax, 0x3000
+    mov es, ax
+    mov bx, 0
+    mov ah, 0x02
+    mov al, 14
+    mov ch, 0
+    mov dh, 1
+    mov cl, 10
+    mov dl, 0
+    int 0x13
+    jc .fr_err_pop
+
+    mov cx, 224
+    mov bx, 0
+.fr_search_loop:
+    push cx
+    mov cx, 11
+    push si
+    push bx
+.fr_cmp:
+    mov al, [si]
+    mov ah, [es:bx]
+    cmp al, ah
+    jne .fr_next
+    inc si
+    inc bx
+    loop .fr_cmp
+    pop bx
+    pop si
+    pop cx
+    jmp .fr_found
+
+.fr_next:
+    pop bx
+    pop si
+    pop cx
+    add bx, 32
+    loop .fr_search_loop
+    jmp .fr_err_pop
+
+.fr_found:
+    mov ax, [es:bx+26]
+    add ax, 39
+    
+    mov bp, ax
+    xor dx, dx
+    push bx
+    mov bx, 18
+    div bx
+    inc dl
+    mov cl, dl
+    xor dx, dx
+    mov bx, 2
+    div bx
+    mov ch, al
+    mov dh, dl
+    pop bx
+    mov dl, 0
+    
+    mov ax, ds
+    mov es, ax
+    mov ah, 0x02
+    mov al, 1
+    mov bx, di
+    int 0x13
+    jc .fr_err_pop
+
+    pop es
+    pop ds
+    popa
+    mov ax, 0
+    iret
+
+.fr_err_pop:
+    pop es
+    pop ds
+    popa
+    mov ax, 1
+    iret
+
+.sys_file_write:
+    sti
+    pusha
+    push ds
+    push es
+    
+    mov ax, 0x3000
+    mov es, ax
+    mov bx, 0
+    mov ah, 0x02
+    mov al, 14
+    mov ch, 0
+    mov dh, 1
+    mov cl, 10
+    mov dl, 0
+    int 0x13
+    jc .fw_err_pop
+
+    mov cx, 224
+    mov bx, 0
+.fw_search_loop:
+    push cx
+    mov cx, 11
+    push si
+    push bx
+.fw_cmp:
+    mov al, [si]
+    mov ah, [es:bx]
+    cmp al, ah
+    jne .fw_next
+    inc si
+    inc bx
+    loop .fw_cmp
+    pop bx
+    pop si
+    pop cx
+    jmp .fw_found
+
+.fw_next:
+    pop bx
+    pop si
+    pop cx
+    add bx, 32
+    loop .fw_search_loop
+    jmp .fw_err_pop
+
+.fw_found:
+    mov ax, [es:bx+26]
+    add ax, 39
+    
+    mov bp, ax
+    xor dx, dx
+    push bx
+    mov bx, 18
+    div bx
+    inc dl
+    mov cl, dl
+    xor dx, dx
+    mov bx, 2
+    div bx
+    mov ch, al
+    mov dh, dl
+    pop bx
+    mov dl, 0
+    
+    mov ax, ds
+    mov es, ax
+    mov ah, 0x03
+    mov al, 1
+    mov bx, di
+    int 0x13
+    jc .fw_err_pop
+
+    pop es
+    pop ds
+    popa
+    mov ax, 0
+    iret
+
+.fw_err_pop:
+    pop es
+    pop ds
+    popa
+    mov ax, 1
     iret
 
 mouse_cycle db 0
